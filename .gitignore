@@ -1,0 +1,17 @@
+# Node / Python / local dev ignores
+node_modules/
+scaffold/frontend/node_modules/
+scaffold/backend/node_modules/
+dist/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+dev.db
+youtube_token.json
+.env
+.renderignore
+coverage/
+.pytest_cache/
+*.log

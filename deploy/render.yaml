@@ -1,0 +1,43 @@
+# Render manifest to automate deployments for backend (web) and worker (background job).
+# Customize the env var values in Render UI or via Render's CLI before deploy.
+
+services:
+  - type: web
+    name: model-ai-backend
+    env: docker
+    dockerfilePath: deploy/render-backend.Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    env:
+      - key: PORT
+        value: "4000"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+      - key: REDIS_URL
+        value: ${REDIS_URL}
+      - key: JWT_SECRET
+        value: ${JWT_SECRET}
+
+jobs:
+  - type: worker
+    name: model-ai-worker
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: starter
+    # startCommand should launch the worker; we use the helper script included in repo
+    startCommand: ./scripts/start-worker.sh
+    env:
+      - key: REDIS_URL
+        value: ${REDIS_URL}
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+      - key: JWT_SECRET
+        value: ${JWT_SECRET}
+
+# Notes:
+# - Replace ${VAR} values by setting Environment in Render UI or set secrets via the CLI.
+# - The backend service references `deploy/render-backend.Dockerfile` (already added).
+# - The worker uses the repo root `Dockerfile` which must include Python + ffmpeg (the repo's root Dockerfile does).
+# - If you prefer two web services instead of jobs, move the worker entry into `services:` and set type: web.

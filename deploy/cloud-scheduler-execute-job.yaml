@@ -1,0 +1,23 @@
+# Example Cloud Scheduler job that triggers a Cloud Run Job via the Run API.
+# Replace PROJECT_ID, REGION, JOB_NAME, and SERVICE_ACCOUNT_EMAIL.
+# Note: Cloud Scheduler will make an authenticated HTTP POST to the Run Jobs
+# execute endpoint using OIDC; ensure the service account has permission
+# `run.jobs.run` on the job resource.
+
+name: projects/PROJECT_ID/locations/LOCATION/jobs/ai-orchestrator-run-job
+schedule: "0 9 * * *" # daily at 09:00
+timeZone: "UTC"
+httpTarget:
+  uri: https://run.googleapis.com/apis/run.googleapis.com/v1/namespaces/PROJECT_ID/jobs/JOB_NAME:run
+  httpMethod: POST
+  oauthToken:
+    serviceAccountEmail: SERVICE_ACCOUNT_EMAIL
+  body: "{}"
+
+# Example gcloud command to create a scheduler job that triggers the Run Jobs API:
+# gcloud scheduler jobs create http ai-orchestrator-run-job \
+#   --schedule="0 9 * * *" \
+#   --uri="https://run.googleapis.com/apis/run.googleapis.com/v1/namespaces/PROJECT_ID/jobs/JOB_NAME:run" \
+#   --http-method=POST \
+#   --oidc-service-account-email=SERVICE_ACCOUNT_EMAIL \
+#   --location=LOCATION

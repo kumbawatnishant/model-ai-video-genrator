@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: AI Orchestrator API (scaffold)
+  version: 0.1.0
+servers:
+  - url: http://localhost:4000
+paths:
+  /api/auth/signup:
+    post:
+      summary: Create a user (scaffold)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: token
+  /api/auth/login:
+    post:
+      summary: Login (scaffold)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: token
+  /api/jobs:
+    post:
+      summary: Create a job
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                settings:
+                  type: object
+      responses:
+        '202':
+          description: job queued
+    get:
+      summary: List jobs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: job list
+  /api/jobs/{id}:
+    get:
+      summary: Get job
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: job
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

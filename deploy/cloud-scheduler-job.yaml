@@ -1,0 +1,17 @@
+# Example Cloud Scheduler job that POSTs to the Cloud Run service URL.
+# Replace SERVICE_URL with your Cloud Run service URL (e.g. https://ai-orchestrator-xxxx.a.run.app)
+name: projects/PROJECT_ID/locations/LOCATION/jobs/ai-orchestrator-schedule
+schedule: "0 9 * * *" # daily at 09:00
+timeZone: "UTC"
+httpTarget:
+  uri: https://SERVICE_URL/trigger-orchestrator
+  httpMethod: POST
+  headers:
+    Content-Type: application/json
+  body: "{ \"run\": true }"
+
+# Notes:
+# - This is an example Cloud Scheduler job resource. You can create it via gcloud
+#   or the Cloud Console. Ensure the target URL is the Cloud Run service's
+#   ingress endpoint and that the service allows unauthenticated invocations or
+#   configure OIDC authentication accordingly.

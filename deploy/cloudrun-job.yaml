@@ -1,0 +1,29 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: ai-orchestrator-job
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          containers:
+            - image: gcr.io/PROJECT_ID/ai-orchestrator:latest # replace PROJECT_ID and tag
+              env:
+                - name: VIDEO_REQUIRE_FFMPEG
+                  value: "true"
+                - name: DRY_RUN
+                  value: "false"
+          # You can override command/args if your container image needs it
+          # Example: args: ["--some-flag"]
+          # Timeout and retry configuration (example values):
+          # - timeout in seconds for each task instance
+          timeout: 600s
+          # - maximum number of retries for failed task attempts
+          maxRetries: 2
+
+# Notes:
+# - This manifest creates a Cloud Run Job which you can execute on demand or
+#   schedule with Cloud Scheduler. Replace the image with your built image.
+# - To create the job using gcloud:
+#     gcloud beta run jobs create ai-orchestrator-job --image gcr.io/PROJECT_ID/ai-orchestrator:latest --region REGION

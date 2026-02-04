@@ -1,0 +1,179 @@
+name: Build, Push, and Deploy Cloud Run Job
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_once:
+        description: 'Execute the job once after deploy (true/false)'
+        required: false
+        default: 'false'
+      schedule_cron:
+        description: 'Cron schedule for Cloud Scheduler (overrides secret if provided)'
+        required: false
+      scheduler_job_name:
+        description: 'Scheduler job name (overrides secret if provided)'
+        required: false
+      scheduler_sa_email:
+        description: 'Service account email Cloud Scheduler will use to authenticate when calling the Run Jobs API'
+        required: false
+      scheduler_oidc_audience:
+        description: 'OIDC token audience for the scheduler (overrides secret if provided)'
+        required: false
+
+jobs:
+  build-and-deploy-job:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT }}/model-ai-orchestrator
+      JOB_NAME: model-ai-orchestrator-job
+      REGION: ${{ secrets.GCP_REGION || 'us-central1' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          export_default_credentials: true
+          install_components: 'gke-gcloud-auth-plugin, beta'
+
+      - name: Configure Docker for gcr
+        run: |
+          gcloud auth configure-docker --quiet
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+
+      - name: Create or update Cloud Run Job
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          JOB_NAME: ${{ env.JOB_NAME }}
+          REGION: ${{ env.REGION }}
+        run: |
+          set -euo pipefail
+
+          echo "Checking for manifest at deploy/cloudrun-job.yaml"
+          if [ -f deploy/cloudrun-job.yaml ]; then
+            echo "Found manifest — applying via gcloud beta run jobs replace --source=deploy/cloudrun-job.yaml"
+            # replace will create or update the job from the YAML manifest
+            gcloud beta run jobs replace --source=deploy/cloudrun-job.yaml --region "$REGION" --format=json
+          else
+            echo "No manifest found — falling back to image-based create/update"
+            echo "Checking for existing job: $JOB_NAME"
+            if gcloud beta run jobs describe "$JOB_NAME" --region "$REGION" >/dev/null 2>&1; then
+              echo "Job exists — updating job to use image $IMAGE"
+              gcloud beta run jobs update "$JOB_NAME" --image "$IMAGE" --region "$REGION" --format=json
+            else
+              echo "Job not found — creating job $JOB_NAME with image $IMAGE"
+              # Basic job creation; adjust --task-concurrency, --max-retries, --timeout as needed
+              gcloud beta run jobs create "$JOB_NAME" --image "$IMAGE" --region "$REGION" --tasks=1 --format=json
+            fi
+          fi
+
+      - name: Run a test execution of the Job (optional)
+        if: ${{ always() && github.event.inputs.run_once == 'true' }}
+        env:
+          JOB_NAME: ${{ env.JOB_NAME }}
+          REGION: ${{ env.REGION }}
+        run: |
+          echo "Executing job $JOB_NAME once"
+          gcloud beta run jobs execute "$JOB_NAME" --region "$REGION" --wait
+
+      - name: Enable Cloud Scheduler API
+        run: |
+          set -euo pipefail
+          echo "Enabling Cloud Scheduler API"
+          gcloud services enable cloudscheduler.googleapis.com --project="${{ secrets.GCP_PROJECT }}"
+
+      - name: Create or update Cloud Scheduler job to trigger the Run Job
+        env:
+          JOB_NAME: ${{ env.JOB_NAME }}
+          REGION: ${{ env.REGION }}
+          PROJECT: ${{ secrets.GCP_PROJECT }}
+        run: |
+          set -euo pipefail
+
+          # Determine schedule cron and scheduler job name from workflow inputs (if provided), then repo secrets, then defaults
+          INPUT_CRON='${{ github.event.inputs.schedule_cron || '' }}'
+          SECRET_CRON='${{ secrets.SCHEDULER_CRON || '' }}'
+          DEFAULT_CRON='0 19,23 * * *'
+          if [ -n "$INPUT_CRON" ]; then
+            SCHEDULE_CRON="$INPUT_CRON"
+          elif [ -n "$SECRET_CRON" ]; then
+            SCHEDULE_CRON="$SECRET_CRON"
+          else
+            SCHEDULE_CRON="$DEFAULT_CRON"
+          fi
+
+          INPUT_JOB_NAME='${{ github.event.inputs.scheduler_job_name || '' }}'
+          SECRET_JOB_NAME='${{ secrets.SCHEDULER_JOB_NAME || '' }}'
+          if [ -n "$INPUT_JOB_NAME" ]; then
+            SCHEDULER_JOB_NAME="$INPUT_JOB_NAME"
+          elif [ -n "$SECRET_JOB_NAME" ]; then
+            SCHEDULER_JOB_NAME="$SECRET_JOB_NAME"
+          else
+            SCHEDULER_JOB_NAME="${JOB_NAME}-scheduler"
+          fi
+
+          # Determine the scheduler service account email: workflow input -> repo secret -> active gcloud account
+          INPUT_SA='${{ github.event.inputs.scheduler_sa_email || '' }}'
+          SECRET_SA='${{ secrets.SCHEDULER_SA_EMAIL || '' }}'
+          if [ -n "$INPUT_SA" ]; then
+            SCHED_SA_EMAIL="$INPUT_SA"
+          elif [ -n "$SECRET_SA" ]; then
+            SCHED_SA_EMAIL="$SECRET_SA"
+          else
+            SCHED_SA_EMAIL=$(gcloud config get-value account)
+          fi
+
+          # Determine OIDC audience: workflow input -> secret -> default
+          INPUT_AUD='${{ github.event.inputs.scheduler_oidc_audience || '' }}'
+          SECRET_AUD='${{ secrets.SCHEDULER_OIDC_AUD || '' }}'
+          if [ -n "$INPUT_AUD" ]; then
+            OIDC_AUD="$INPUT_AUD"
+          elif [ -n "$SECRET_AUD" ]; then
+            OIDC_AUD="$SECRET_AUD"
+          else
+            OIDC_AUD='https://run.googleapis.com/'
+          fi
+
+          URI="https://run.googleapis.com/v1/projects/${PROJECT}/locations/${REGION}/jobs/${JOB_NAME}:run"
+
+          echo "Scheduler job name: $SCHEDULER_JOB_NAME"
+          echo "Scheduler cron: $SCHEDULE_CRON"
+          echo "Scheduler will POST to: $URI using OIDC service account: $SCHED_SA_EMAIL (audience: $OIDC_AUD)"
+
+          if gcloud scheduler jobs describe "$SCHEDULER_JOB_NAME" --location "$REGION" >/dev/null 2>&1; then
+            echo "Scheduler job exists — updating to use OIDC"
+            gcloud scheduler jobs update http "$SCHEDULER_JOB_NAME" \
+              --location "$REGION" \
+              --schedule "$SCHEDULE_CRON" \
+              --uri "$URI" \
+              --http-method POST \
+              --oidc-service-account-email "$SCHED_SA_EMAIL" \
+              --oidc-token-audience "$OIDC_AUD"
+          else
+            echo "Creating scheduler job $SCHEDULER_JOB_NAME with OIDC auth"
+            gcloud scheduler jobs create http "$SCHEDULER_JOB_NAME" \
+              --location "$REGION" \
+              --schedule "$SCHEDULE_CRON" \
+              --uri "$URI" \
+              --http-method POST \
+              --oidc-service-account-email "$SCHED_SA_EMAIL" \
+              --oidc-token-audience "$OIDC_AUD"
+          fi

@@ -1,0 +1,307 @@
+openapi: 3.0.3
+info:
+  title: AI Orchestrator API (expanded)
+  version: 0.2.0
+servers:
+  - url: http://localhost:4000
+
+paths:
+  /api/auth/signup:
+    post:
+      summary: Create a user (scaffold)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /api/auth/login:
+    post:
+      summary: Login (scaffold)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /api/user/keys:
+    post:
+      summary: Add an API key for a provider
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                key:
+                  type: string
+      responses:
+        '201':
+          description: created
+
+    get:
+      summary: List stored API keys (metadata only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: list
+
+  /api/billing/webhook:
+    post:
+      summary: Whop webhook endpoint (subscribe to plan changes)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: accepted
+
+  /api/subscriptions:
+    get:
+      summary: Get current user's subscription status
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: subscription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+
+    post:
+      summary: Create a subscription / return a checkout URL (delegates to Whop)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan_id:
+                  type: string
+      responses:
+        '201':
+          description: checkout url
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkout_url:
+                    type: string
+
+  /api/subscriptions/{id}/cancel:
+    post:
+      summary: Cancel a subscription (user or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: cancelled
+
+  /api/subscriptions/portal:
+    get:
+      summary: Return a billing portal URL for the user (Whop billing portal)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: portal url
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  portal_url:
+                    type: string
+
+  /api/jobs:
+    post:
+      summary: Create a job
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobRequest'
+      responses:
+        '202':
+          description: job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+    get:
+      summary: List jobs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: job list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Job'
+
+  /api/jobs/{id}:
+    get:
+      summary: Get job
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SignupRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+    CreateJobRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+        settings:
+          type: object
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+        prompt:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+        created_at:
+          type: string
+        last_tested:
+          type: string
+        meta:
+          type: object
+    APIKeyCreateRequest:
+      type: object
+      required: [provider, key]
+      properties:
+        provider:
+          type: string
+        key:
+          type: string
+        meta:
+          type: object
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        status:
+          type: string
+        plan_id:
+          type: string
+        tier:
+          type: string
+        quotas:
+          type: object
+        next_billing_at:
+          type: string
+    UploadTokenRequest:
+      type: object
+      required: [filename]
+      properties:
+        filename:
+          type: string
+        content_type:
+          type: string
+        expires_in:
+          type: integer
+    UploadTokenResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        method:
+          type: string
+        expires_at:
+          type: string
+        fields:
+          type: object
+    Error:
+      type: object
+      properties:
+        error:
+          type: string

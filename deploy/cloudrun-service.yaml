@@ -1,0 +1,22 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ai-orchestrator
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/PROJECT_ID/ai-orchestrator:latest # replace PROJECT_ID and image tag
+          env:
+            - name: VIDEO_REQUIRE_FFMPEG
+              value: "true"
+            - name: DRY_RUN
+              value: "false"
+          # If you want the container to receive HTTP requests, expose port 8080
+          ports:
+            - containerPort: 8080
+      containerConcurrency: 80
+
+# Notes:
+# - This is a template for Cloud Run (fully managed). Replace the image with your built image.
+# - If your orchestrator is purely a CLI task, consider using Cloud Run jobs instead of a service.
