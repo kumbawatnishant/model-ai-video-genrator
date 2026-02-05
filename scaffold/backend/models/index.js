@@ -1,10 +1,26 @@
 const { Sequelize, DataTypes } = require('sequelize');
-const DATABASE_URL = process.env.DATABASE_URL || process.env.SQlite_DB || 'sqlite::memory:';
 
-// If DATABASE_URL looks like mysql, pass it directly; otherwise sqlite fallback
-const sequelize = new Sequelize(DATABASE_URL, {
-  logging: false,
-});
+let sequelize;
+if (process.env.DATABASE_URL) {
+  // Production / Render (PostgreSQL)
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    logging: false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false // Required for Render's self-signed certs
+      }
+    }
+  });
+} else {
+  // Local Development (SQLite in-memory)
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: ':memory:',
+    logging: false
+  });
+}
 
 const User = sequelize.define('User', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },

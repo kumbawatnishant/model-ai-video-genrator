@@ -8,8 +8,8 @@
 - [ ] **Start Command**: Ensure it is `npm start`.
 
 ## 2. Fix Crash on Startup (Sequelize Error)
-- [ ] **Critical Code Fix**: The app crashes because `sqlite::memory:` is not a valid URL.
-      **Action**: Replace the contents of `scaffold/backend/models/index.js` with the code provided in the chat.
+- [x] **Critical Code Fix**: Updated `scaffold/backend/models/index.js` to handle `DATABASE_URL` correctly and fix the `sqlite::memory:` crash.
+- [x] **Node Version**: Pinned to `20.x` in `package.json` to avoid unstable v25 builds.
 
 ## 3. Environment Variables (Security & Database)
 Add these in the "Environment" tab of your deployment service (Render/Vercel):
