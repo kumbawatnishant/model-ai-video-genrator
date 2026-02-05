@@ -15,3 +15,4 @@ youtube_token.json
 coverage/
 .pytest_cache/
 *.log
+client_secrets.json
