@@ -37,4 +37,8 @@ async function start() {
 	app.listen(port, () => console.log(`Backend scaffold listening on ${port}`));
 }
 
-start();
+if (require.main === module) {
+	start();
+}
+
+module.exports = app;

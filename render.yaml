@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: model-ai-backend
+    env: node
+    plan: free
+    rootDirectory: scaffold/backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: 10000
