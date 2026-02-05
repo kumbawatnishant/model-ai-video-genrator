@@ -13,3 +13,5 @@ services:
         generateValue: true
       - key: PORT
         value: 10000
+      - key: NODE_VERSION
+        value: 20.11.0

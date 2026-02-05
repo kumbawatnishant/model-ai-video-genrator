@@ -7,7 +7,11 @@
 - [ ] **Build Command**: Ensure it is `npm install`.
 - [ ] **Start Command**: Ensure it is `npm start`.
 
-## 2. Environment Variables (Security & Database)
+## 2. Fix Crash on Startup (Sequelize Error)
+- [ ] **Critical Code Fix**: The app crashes because `sqlite::memory:` is not a valid URL.
+      **Action**: Replace the contents of `scaffold/backend/models/index.js` with the code provided in the chat.
+
+## 3. Environment Variables (Security & Database)
 Add these in the "Environment" tab of your deployment service (Render/Vercel):
 
 - [ ] `NODE_ENV`: Set to `production`.
@@ -16,15 +20,15 @@ Add these in the "Environment" tab of your deployment service (Render/Vercel):
       *Note: Without this, the app uses temporary memory storage and will lose users on restart.*
 - [ ] **Database Driver**: If using PostgreSQL (Render's default), ensure `pg` is in `package.json` (Added in latest update).
 
-## 3. Vercel Specifics (If deploying Frontend there)
+## 4. Vercel Specifics (If deploying Frontend there)
 - [ ] Ensure `vercel.json` is present in the root (already added).
 - [ ] In Vercel Project Settings > Root Directory, select `scaffold/frontend` if deploying the UI, or leave default if using the `vercel.json` for backend.
 
-## 4. Frontend Connection
+## 5. Frontend Connection
 - [ ] Once the backend is live (e.g., `https://model-ai-backend.onrender.com`), you must update your Frontend.
 - [ ] If deploying Frontend to Vercel: Add an Environment Variable `VITE_API_URL` (or similar, check your frontend code) with the value of your Render Backend URL.
 
-## 5. Verification
+## 6. Verification
 - [ ] Push these changes to GitHub.
 - [ ] Check deployment logs for "Build Successful".
 - [ ] Visit the deployed URL + `/api/health` to confirm the backend is running (should return `{"status":"ok"}`).
